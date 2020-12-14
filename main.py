@@ -25,4 +25,17 @@ if __name__ == '__main__':
 
     print(df)
 
+    df_without_duplicates = df.drop_duplicates(subset=['iid'])
+    race_stat = df_without_duplicates.groupby(['race']).size().rename("count").to_frame().reset_index()
 
+    dict = {1: 'black', 2:'white', 3:'latino', 4: 'asian', 5: 'native', 6: 'other'}
+
+    race_stat['value'] = race_stat['race'].map(dict)
+    notclassified = df_without_duplicates.shape[0] - race_stat['count'].sum()
+    for i in range(1,6):
+        if not (i in race_stat.race):
+            race_stat = race_stat.append(
+                pd.DataFrame([[i, 0, dict[i]]], columns=['race', 'count', 'value']))
+
+    race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
+    print(race_stat)
