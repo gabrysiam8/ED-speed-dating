@@ -80,13 +80,14 @@ if __name__ == '__main__':
     field_stat = df_without_duplicates.groupby(['field_cd']).size().rename("count").to_frame().reset_index()
     field_stat['value'] = field_stat['field_cd'].map(dict_fields_of_study)
     notclassified = df_without_duplicates.shape[0] - field_stat['count'].sum()
-    for i in range(1,18):
+    for i in range(1, 18):
         if not (i in field_stat.field_cd):
             field_stat = field_stat.append(
                 pd.DataFrame([[i, 0, dict[i]]], columns=['field_cd', 'count', 'value']))
 
     field_stat = field_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['field_cd', 'count', 'value']))
     print(field_stat)
+
     df = df.set_index(['iid', 'pid'])
     print(df)
 
@@ -102,7 +103,6 @@ if __name__ == '__main__':
 
     female_df = df[df['gender'] == 0].copy()
     male_df = df[df['gender'] == 1].copy()
-    print(male_df)
     merged_df = merge_person_partner_data(female_df, male_df)
 
     print(merged_df)
