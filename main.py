@@ -57,6 +57,7 @@ if __name__ == '__main__':
 
     df_without_duplicates = df.drop_duplicates(subset=['iid'])
     race_stat = df_without_duplicates.groupby(['race']).size().rename("count").to_frame().reset_index()
+    field_stat = df_without_duplicates.groupby(['field_cd']).size().rename("count").to_frame().reset_index()
 
     dict = {1: 'black', 2: 'white', 3: 'latino', 4: 'asian', 5: 'native', 6: 'other'}
 
@@ -67,10 +68,25 @@ if __name__ == '__main__':
             race_stat = race_stat.append(
                 pd.DataFrame([[i, 0, dict[i]]], columns=['race', 'count', 'value']))
 
-    race_stat = race_stat.append(
-        pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
+    race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
     print(race_stat)
 
+    dict_fields_of_study = {1: 'Law', 2:'Math', 3:'Social Science, Psychologist', 4: 'Medical Science, Pharmaceuticals, and Bio Tech',
+                            5: 'Engineering', 6: 'English / Creative Writing / Journalism', 7: 'History / Religion / Philosophy',
+                            8: 'Business / Econ / Finance', 9: 'Education, Academia', 10 : 'Biological Sciences / Chemistry / Physics',
+                            11: 'Social Work', 12: 'Undergrad / undecided', 13: 'Political Science / International Affairs',
+                            14: 'Film', 15: 'Fine Arts / Arts Administration', 16: 'Languages', 17: 'Architecture', 18: 'Other'}
+
+    field_stat = df_without_duplicates.groupby(['field_cd']).size().rename("count").to_frame().reset_index()
+    field_stat['value'] = field_stat['field_cd'].map(dict_fields_of_study)
+    notclassified = df_without_duplicates.shape[0] - field_stat['count'].sum()
+    for i in range(1,18):
+        if not (i in field_stat.field_cd):
+            field_stat = field_stat.append(
+                pd.DataFrame([[i, 0, dict[i]]], columns=['field_cd', 'count', 'value']))
+
+    field_stat = field_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['field_cd', 'count', 'value']))
+    print(field_stat)
     df = df.set_index(['iid', 'pid'])
     print(df)
 
