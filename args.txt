@@ -1,0 +1,2 @@
+gender,race,int_corr,attr1_1,intel1_1
+#gender,race,age,field_cd,career_c,int_corr,attr1_1,sinc1_1,intel1_1,fun1_1,amb1_1,shar1_1

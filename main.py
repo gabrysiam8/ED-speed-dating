@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import scipy.cluster.hierarchy as sch
 from sklearn.impute import SimpleImputer
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
@@ -8,6 +7,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn import preprocessing
 import seaborn as sns
+from numpy import loadtxt
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -105,28 +105,60 @@ if __name__ == '__main__':
     df = replace_missing_values(df)
 
     # clustering
-    X = df.iloc[:, :].values
+    cols = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
+    partial_df = df.loc[:, cols]
 
-    dendrogram = sch.dendrogram(sch.linkage(X, method='ward'))
-    plt.show()
+    # dendrogram = sch.dendrogram(sch.linkage(partial_df, method='ward'))
+    # plt.show()
 
     # prepare models
-    kmeans = KMeans(n_clusters=2).fit(df)
+    kmeans = KMeans(n_clusters=2).fit(partial_df)
     # data normalization
-    normalized_vectors = preprocessing.normalize(df)
+    normalized_vectors = preprocessing.normalize(partial_df)
     normalized_kmeans = KMeans(n_clusters=2).fit(normalized_vectors)
 
     # print results
-    print('kmeans: {}'.format(silhouette_score(df, kmeans.labels_, metric='euclidean')))
+    print('2 clusters')
+    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
+    print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
+                                                     normalized_kmeans.labels_,
+                                                     metric='cosine')))
+
+    # prepare models
+    kmeans = KMeans(n_clusters=3).fit(partial_df)
+    # data normalization
+    normalized_vectors = preprocessing.normalize(partial_df)
+    normalized_kmeans = KMeans(n_clusters=3).fit(normalized_vectors)
+
+    # print results
+    print('3 clusters')
+    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
     print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
                                                      normalized_kmeans.labels_,
                                                      metric='cosine')))
 
     # Principal Component Analysis
-    principal_df = run_pca(2, df)
-    principal_df['labels'] = normalized_kmeans.labels_
-    print(principal_df)
-    sns.scatterplot(x=principal_df.PC0, y=principal_df.PC1, hue=principal_df.labels, palette="Set2")
+    pca_df = run_pca(2, partial_df)
+    pca_df['labels'] = kmeans.labels_
+    plt.title('kmeans')
+    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
+    plt.show()
+
+    norm_pca_df = pca_df.copy()
+    norm_pca_df['labels'] = normalized_kmeans.labels_
+    plt.title('cosine kmeans')
+    sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
+    plt.show()
+
+    # set all variables between 0 and 1
+    scaler = preprocessing.MinMaxScaler()
+    df_scaled = pd.DataFrame(scaler.fit_transform(partial_df), columns=partial_df.columns)
+    df_scaled['norm_kmeans'] = normalized_kmeans.labels_
+
+    tidy = df_scaled.melt(id_vars='norm_kmeans')
+    fig, ax = plt.subplots(figsize=(15, 5))
+    sns.barplot(x='norm_kmeans', y='value', hue='variable', data=tidy, palette='Set3')
+    plt.legend([''])
     plt.show()
 
     # female_df = df[df['gender'] == 0].copy()
