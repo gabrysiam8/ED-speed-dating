@@ -2,6 +2,12 @@ import numpy as np
 import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from sklearn import preprocessing
+import seaborn as sns
+from numpy import loadtxt
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -41,10 +47,11 @@ def replace_missing_values(original_df):
     return pd.DataFrame(data=imp_mean.transform(original_df.values), index=original_df.index, columns=original_df.columns)
 
 
-def two_components_pca(original_df):
-    pca = PCA(n_components=2)
+def run_pca(n_components, original_df):
+    pca = PCA(n_components=n_components)
     principal_components = pca.fit_transform(original_df.values)
-    pca_df = pd.DataFrame(data=principal_components, index=original_df.index, columns=['PC 1', 'PC 2'])
+    pca_df = pd.DataFrame(data=principal_components, index=original_df.index)
+    pca_df.rename({i: "PC{}".format(i) for i in range(n_components)}, axis=1, inplace=True)
     return pca_df
 
 
@@ -97,12 +104,65 @@ if __name__ == '__main__':
     # replace missing values with mean
     df = replace_missing_values(df)
 
+    # clustering
+    cols = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
+    partial_df = df.loc[:, cols]
+
+    # dendrogram = sch.dendrogram(sch.linkage(partial_df, method='ward'))
+    # plt.show()
+
+    # prepare models
+    kmeans = KMeans(n_clusters=2).fit(partial_df)
+    # data normalization
+    normalized_vectors = preprocessing.normalize(partial_df)
+    normalized_kmeans = KMeans(n_clusters=2).fit(normalized_vectors)
+
+    # print results
+    print('2 clusters')
+    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
+    print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
+                                                     normalized_kmeans.labels_,
+                                                     metric='cosine')))
+
+    # prepare models
+    kmeans = KMeans(n_clusters=3).fit(partial_df)
+    # data normalization
+    normalized_vectors = preprocessing.normalize(partial_df)
+    normalized_kmeans = KMeans(n_clusters=3).fit(normalized_vectors)
+
+    # print results
+    print('3 clusters')
+    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
+    print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
+                                                     normalized_kmeans.labels_,
+                                                     metric='cosine')))
+
     # Principal Component Analysis
-    principal_df = two_components_pca(df)
-    print(principal_df)
+    pca_df = run_pca(2, partial_df)
+    pca_df['labels'] = kmeans.labels_
+    plt.title('kmeans')
+    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
+    plt.show()
 
-    female_df = df[df['gender'] == 0].copy()
-    male_df = df[df['gender'] == 1].copy()
-    merged_df = merge_person_partner_data(female_df, male_df)
+    norm_pca_df = pca_df.copy()
+    norm_pca_df['labels'] = normalized_kmeans.labels_
+    plt.title('cosine kmeans')
+    sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
+    plt.show()
 
-    print(merged_df)
+    # set all variables between 0 and 1
+    scaler = preprocessing.MinMaxScaler()
+    df_scaled = pd.DataFrame(scaler.fit_transform(partial_df), columns=partial_df.columns)
+    df_scaled['norm_kmeans'] = normalized_kmeans.labels_
+
+    tidy = df_scaled.melt(id_vars='norm_kmeans')
+    fig, ax = plt.subplots(figsize=(15, 5))
+    sns.barplot(x='norm_kmeans', y='value', hue='variable', data=tidy, palette='Set3')
+    plt.legend([''])
+    plt.show()
+
+    # female_df = df[df['gender'] == 0].copy()
+    # male_df = df[df['gender'] == 1].copy()
+    # merged_df = merge_person_partner_data(female_df, male_df)
+    #
+    # print(merged_df)
