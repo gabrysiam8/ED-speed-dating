@@ -15,6 +15,8 @@ import statsmodels.formula.api as smf
 import statsmodels.api as sm
 
 from sklearn import model_selection, preprocessing, feature_selection, ensemble, linear_model, metrics, decomposition
+
+
 def merge_person_partner_data(f_df, m_df):
     columns_to_merge = ['gender', 'race', 'age', 'field_cd', 'career_c', 'int_corr', 'attr1_1', 'sinc1_1', 'intel1_1',
                         'fun1_1', 'amb1_1', 'shar1_1']
@@ -49,7 +51,8 @@ def detect_outliers(original_df, columns):
 def replace_missing_values(original_df):
     imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
     imp_mean = imp_mean.fit(original_df.values)
-    return pd.DataFrame(data=imp_mean.transform(original_df.values), index=original_df.index, columns=original_df.columns)
+    return pd.DataFrame(data=imp_mean.transform(original_df.values), index=original_df.index,
+                        columns=original_df.columns)
 
 
 def run_pca(n_components, original_df):
@@ -59,17 +62,19 @@ def run_pca(n_components, original_df):
     pca_df.rename({i: "PC{}".format(i) for i in range(n_components)}, axis=1, inplace=True)
     return pca_df
 
+
 def utils_recognize_type(dtf, col, max_cat=20):
     if (dtf[col].dtype == "O") | (dtf[col].nunique() < max_cat):
         return "cat"
     else:
         return "num"
 
+
 if __name__ == '__main__':
     df = pd.read_csv('Speed Dating Data.csv', encoding="ISO-8859-1")
 
     column_names = ['iid', 'pid', 'gender', 'race', 'age', 'field_cd', 'career_c', 'int_corr', 'attr1_1', 'sinc1_1',
-                    'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'match']
+                    'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'match', 'dec_o']
     df = df[column_names]
 
     df_without_duplicates = df.drop_duplicates(subset=['iid'])
@@ -85,14 +90,20 @@ if __name__ == '__main__':
             race_stat = race_stat.append(
                 pd.DataFrame([[i, 0, dicto[i]]], columns=['race', 'count', 'value']))
 
-    race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
+    race_stat = race_stat.append(
+        pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
     print(race_stat)
 
-    dict_fields_of_study = {1: 'Law', 2:'Math', 3:'Social Science, Psychologist', 4: 'Medical Science, Pharmaceuticals, and Bio Tech',
-                            5: 'Engineering', 6: 'English / Creative Writing / Journalism', 7: 'History / Religion / Philosophy',
-                            8: 'Business / Econ / Finance', 9: 'Education, Academia', 10 : 'Biological Sciences / Chemistry / Physics',
-                            11: 'Social Work', 12: 'Undergrad / undecided', 13: 'Political Science / International Affairs',
-                            14: 'Film', 15: 'Fine Arts / Arts Administration', 16: 'Languages', 17: 'Architecture', 18: 'Other'}
+    dict_fields_of_study = {1: 'Law', 2: 'Math', 3: 'Social Science, Psychologist',
+                            4: 'Medical Science, Pharmaceuticals, and Bio Tech',
+                            5: 'Engineering', 6: 'English / Creative Writing / Journalism',
+                            7: 'History / Religion / Philosophy',
+                            8: 'Business / Econ / Finance', 9: 'Education, Academia',
+                            10: 'Biological Sciences / Chemistry / Physics',
+                            11: 'Social Work', 12: 'Undergrad / undecided',
+                            13: 'Political Science / International Affairs',
+                            14: 'Film', 15: 'Fine Arts / Arts Administration', 16: 'Languages', 17: 'Architecture',
+                            18: 'Other'}
 
     field_stat = df_without_duplicates.groupby(['field_cd']).size().rename("count").to_frame().reset_index()
     field_stat['value'] = field_stat['field_cd'].map(dict_fields_of_study)
@@ -102,7 +113,8 @@ if __name__ == '__main__':
             field_stat = field_stat.append(
                 pd.DataFrame([[i, 0, dicto[i]]], columns=['field_cd', 'count', 'value']))
 
-    field_stat = field_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['field_cd', 'count', 'value']))
+    field_stat = field_stat.append(
+        pd.DataFrame([[0, notclassified, 'notclassified']], columns=['field_cd', 'count', 'value']))
     print(field_stat)
 
     df = df.set_index(['iid', 'pid'])
@@ -177,95 +189,146 @@ if __name__ == '__main__':
     #
     # print(merged_df)
 
-
-##################################################
+    ##################################################
     dtf = pd.read_csv('Speed Dating Data.csv', encoding="ISO-8859-1")
-    dtf.head()
-
-    dic_cols = {col: utils_recognize_type(dtf, col, max_cat=10) for col in dtf.columns}
-    heatmap = dtf.isnull()
-    for k, v in dic_cols.items():
-        if v == "num":
-            heatmap[k] = heatmap[k].apply(lambda x: 0.5 if x is False else 1)
-        else:
-            heatmap[k] = heatmap[k].apply(lambda x: 0 if x is False else 1)
-    sns.heatmap(heatmap, cbar=False).set_title('Dataset Overview')
-    plt.show()
-    print("\033[1;37;40m Categerocial ", "\033[1;30;41m Numeric ", "\033[1;30;47m NaN ")
-
-    dtf = dtf.set_index("iid")
-    dtf = dtf.rename(columns={"match": "Y"})
-
-    y = "Y"
-    ax = dtf[y].value_counts().sort_values().plot(kind="barh")
-    totals = []
-    for i in ax.patches:
-        totals.append(i.get_width())
-    total = sum(totals)
-    for i in ax.patches:
-        ax.text(i.get_width() + .3, i.get_y() + .20,
-                str(round((i.get_width() / total) * 100, 2)) + '%',
-                fontsize=10, color='black')
-    ax.grid(axis="x")
-    plt.suptitle(y, fontsize=20)
-    plt.show()
-
-    x = "age"
-    fig, ax = plt.subplots(nrows=1, ncols=2, sharex=False, sharey=False)
-    fig.suptitle(x, fontsize=20)
-    ### distribution
-    ax[0].title.set_text('distribution')
-    variable = dtf[x].fillna(dtf[x].mean())
-    breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
-    variable = variable[(variable > breaks[0]) & (variable <
-                                                  breaks[10])]
-    sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax[0])
-    des = dtf[x].describe()
-    ax[0].axvline(des["25%"], ls='--')
-    ax[0].axvline(des["mean"], ls='--')
-    ax[0].axvline(des["75%"], ls='--')
-    ax[0].grid(True)
-    des = round(des, 2).apply(lambda x: str(x))
-    box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
-                     "max: " + des["max"]))
-    ax[0].text(0.95, 0.95, box, transform=ax[0].transAxes, fontsize=10, va='top', ha="right",
-               bbox=dict(boxstyle='round', facecolor='white', alpha=1))
-    ### boxplot
-    ax[1].title.set_text('outliers (log scale)')
-    tmp_dtf = pd.DataFrame(dtf[x])
-    tmp_dtf[x] = np.log(tmp_dtf[x])
-    tmp_dtf.boxplot(column=x, ax=ax[1])
-    plt.show()
-
-
+    # dtf.head()
+    #
+    # dic_cols = {col: utils_recognize_type(dtf, col, max_cat=10) for col in dtf.columns}
+    # heatmap = dtf.isnull()
+    # for k, v in dic_cols.items():
+    #     if v == "num":
+    #         heatmap[k] = heatmap[k].apply(lambda x: 0.5 if x is False else 1)
+    #     else:
+    #         heatmap[k] = heatmap[k].apply(lambda x: 0 if x is False else 1)
+    # sns.heatmap(heatmap, cbar=False).set_title('Dataset Overview')
+    # plt.show()
+    # print("\033[1;37;40m Categerocial ", "\033[1;30;41m Numeric ", "\033[1;30;47m NaN ")
+    #
+    # dtf = dtf.set_index("iid")
+    # dtf = dtf.rename(columns={"match": "Y"})
+    #
+    # y = "Y"
+    # ax = dtf[y].value_counts().sort_values().plot(kind="barh")
+    # totals = []
+    # for i in ax.patches:
+    #     totals.append(i.get_width())
+    # total = sum(totals)
+    # for i in ax.patches:
+    #     ax.text(i.get_width() + .3, i.get_y() + .20,
+    #             str(round((i.get_width() / total) * 100, 2)) + '%',
+    #             fontsize=10, color='black')
+    # ax.grid(axis="x")
+    # plt.suptitle(y, fontsize=20)
+    # plt.show()
+    #
+    # x = "age"
+    # fig, ax = plt.subplots(nrows=1, ncols=2, sharex=False, sharey=False)
+    # fig.suptitle(x, fontsize=20)
+    # ### distribution
+    # ax[0].title.set_text('distribution')
+    # variable = dtf[x].fillna(dtf[x].mean())
+    # breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
+    # variable = variable[(variable > breaks[0]) & (variable <
+    #                                               breaks[10])]
+    # sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax[0])
+    # des = dtf[x].describe()
+    # ax[0].axvline(des["25%"], ls='--')
+    # ax[0].axvline(des["mean"], ls='--')
+    # ax[0].axvline(des["75%"], ls='--')
+    # ax[0].grid(True)
+    # des = round(des, 2).apply(lambda x: str(x))
+    # box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
+    #                  "max: " + des["max"]))
+    # ax[0].text(0.95, 0.95, box, transform=ax[0].transAxes, fontsize=10, va='top', ha="right",
+    #            bbox=dict(boxstyle='round', facecolor='white', alpha=1))
+    # ### boxplot
+    # ax[1].title.set_text('outliers (log scale)')
+    # tmp_dtf = pd.DataFrame(dtf[x])
+    # tmp_dtf[x] = np.log(tmp_dtf[x])
+    # tmp_dtf.boxplot(column=x, ax=ax[1])
+    # plt.show()
+    # ## Create new column
+    # dtf["Cabin_section"] = dtf["race"].apply(lambda x: str(x)[0])
+    # ## Plot contingency table
+    # cont_table = pd.crosstab(index=dtf["Cabin_section"],
+    #                          columns=dtf["Y"], values=dtf["gender"], aggfunc="sum")
+    # sns.heatmap(cont_table, annot=True, cmap="YlGnBu", fmt='.0f',
+    #             linewidths=.5).set_title(
+    #     'Cabin_section vs Pclass (filter: Y)')
+    # plt.show()
+    #
+    # ## split data
+    # dtf_train, dtf_test = model_selection.train_test_split(df, test_size=0.3)
+    # ## print info
+    # print("X_train shape:", dtf_train.drop("match", axis=1).shape, "| X_test shape:",
+    #       dtf_test.drop("match", axis=1).shape)
+    # print("y_train mean:", round(np.mean(dtf_train["match"]), 2), "| y_test mean:",
+    #       round(np.mean(dtf_test["match"]), 2))
+    # print(dtf_train.shape[1], "features:", dtf_train.drop("match", axis=1).columns.to_list())
+    #
+    # dic_cols = {col: utils_recognize_type(df, col, max_cat=20) for col in df.columns}
+    # heatmap = df.isnull()
+    # for k, v in dic_cols.items():
+    #     if v == "num":
+    #         heatmap[k] = heatmap[k].apply(lambda x: 0.5 if x is False else 1)
+    #     else:
+    #         heatmap[k] = heatmap[k].apply(lambda x: 0 if x is False else 1)
+    # sns.heatmap(heatmap, cbar=False).set_title('Dataset Overview')
+    # plt.show()
+    # print("\033[1;37;40m Categerocial ", "\033[1;30;41m Numeric ", "\033[1;30;47m NaN ")
+    #
+    # ## create dummy
+    # dummy = pd.get_dummies(dtf_train["gender"],
+    #                        prefix="gender", drop_first=True)
+    # dtf_train = pd.concat([dtf_train, dummy], axis=1)
+    # print(dtf_train.filter(like="gender", axis=1).head())
+    # ## drop the original categorical column
+    # dtf = dtf_train.drop("gender", axis=1)
+    #
+    # scaler = preprocessing.MinMaxScaler(feature_range=(0, 1))
+    # X = scaler.fit_transform(dtf_train.drop("attr1_1", axis=1))
+    # dtf_scaled = pd.DataFrame(X, columns=dtf_train.drop("attr1_1", axis=1).columns, index=dtf_train.index)
+    # dtf_scaled["attr1_1"] = dtf_train["attr1_1"]
+    # dtf_scaled.head()
+    #
+    # corr_matrix = dtf.copy()
+    # for col in corr_matrix.columns:
+    #     if corr_matrix[col].dtype == "O":
+    #         corr_matrix[col] = corr_matrix[col].factorize(sort=True)[0]
+    # corr_matrix = corr_matrix.corr(method="pearson")
+    # sns.heatmap(corr_matrix, vmin=-1., vmax=1., annot=True, fmt='.2f', cmap="YlGnBu", cbar=True, linewidths=0.5)
+    # plt.title("pearson correlation")
+    #
+    # print("DUPA")
+    #
+    # from sklearn.datasets import make_blobs
+    # from matplotlib import pyplot
+    # from pandas import DataFrame
+    #
+    # colors = {0: 'red', 1: 'black'}
+    # fig, ax = pyplot.subplots()
+    # grouped = df.groupby('gender')
+    # for key, group in grouped:
+    #     if key % 1 == 0:
+    #         group.plot(ax=ax, kind='scatter', x='attr1_1', y='age', label=key, color=colors[key], xlim=[0,60], ylim=[20,38])
+    # pyplot.show()
+    # # dla kobiet mniejsze znaczenie ma atrakcyjność
+    #
+    # colors = {0: 'red', 1: 'black'}
+    # fig, ax = pyplot.subplots()
+    # grouped = df.groupby('gender')
+    # for key, group in grouped:
+    #     if key % 1 == 0:
+    #         group.plot(ax=ax, kind='scatter', x='amb1_1', y='age', label=key, color=colors[key], xlim=[-0.1,20], ylim=[20,38])
+    # pyplot.show()
+    # # dla mężczyzn mniejsze znaczenie mają ambicje
 
     ## Create new column
-    dtf["Cabin_section"] = dtf["race"].apply(lambda x: str(x)[0])
+    #df["match_2"] = df["dec_o"].apply(lambda x: str(x)[0])
     ## Plot contingency table
-    cont_table = pd.crosstab(index=dtf["Cabin_section"],
-                 columns=dtf["Y"], values=dtf["gender"], aggfunc="sum")
+    cont_table = pd.crosstab(index=df["race"],
+                             columns=df["match"], values=df["gender"], aggfunc="sum")
     sns.heatmap(cont_table, annot=True, cmap="YlGnBu", fmt='.0f',
                 linewidths=.5).set_title(
-                'Cabin_section vs Pclass (filter: Y)' )
+        'Cabin_section vs Pclass (filter: Y)')
     plt.show()
-
-
-
-
-    ## split data
-    dtf_train, dtf_test = model_selection.train_test_split(df, test_size=0.3)
-    ## print info
-    print("X_train shape:", dtf_train.drop("match", axis=1).shape, "| X_test shape:", dtf_test.drop("match", axis=1).shape)
-    print("y_train mean:", round(np.mean(dtf_train["match"]), 2), "| y_test mean:", round(np.mean(dtf_test["match"]), 2))
-    print(dtf_train.shape[1], "features:", dtf_train.drop("match", axis=1).columns.to_list())
-
-    dic_cols = {col: utils_recognize_type(df, col, max_cat=20) for col in df.columns}
-    heatmap = df.isnull()
-    for k, v in dic_cols.items():
-        if v == "num":
-            heatmap[k] = heatmap[k].apply(lambda x: 0.5 if x is False else 1)
-        else:
-            heatmap[k] = heatmap[k].apply(lambda x: 0 if x is False else 1)
-    sns.heatmap(heatmap, cbar=False).set_title('Dataset Overview')
-    plt.show()
-    print("\033[1;37;40m Categerocial ", "\033[1;30;41m Numeric ", "\033[1;30;47m NaN ")
