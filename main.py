@@ -323,12 +323,25 @@ if __name__ == '__main__':
     # pyplot.show()
     # # dla mężczyzn mniejsze znaczenie mają ambicje
 
-    ## Create new column
-    #df["match_2"] = df["dec_o"].apply(lambda x: str(x)[0])
-    ## Plot contingency table
-    cont_table = pd.crosstab(index=df["race"],
-                             columns=df["match"], values=df["gender"], aggfunc="sum")
-    sns.heatmap(cont_table, annot=True, cmap="YlGnBu", fmt='.0f',
-                linewidths=.5).set_title(
-        'Cabin_section vs Pclass (filter: Y)')
+    x = "age"
+    fig, ax = plt.subplots(nrows=1, ncols=1, sharex=False, sharey=False)
+    fig.suptitle(x, fontsize=20)
+
+
+    variable = dtf[x].fillna(dtf[x].mean())
+    breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
+    variable = variable[(variable > breaks[0]) & (variable <
+                                                  breaks[10])]
+    sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax)
+    des = dtf[x].describe()
+    ax.axvline(des["25%"], ls='--')
+    ax.axvline(des["mean"], ls='--')
+    ax.axvline(des["75%"], ls='--')
+    ax.grid(True)
+    des = round(des, 2).apply(lambda x: str(x))
+    box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
+                     "max: " + des["max"]))
+    ax.text(0.95, 0.95, box, transform=ax.transAxes, fontsize=10, va='top', ha="right",
+               bbox=dict(boxstyle='round', facecolor='white', alpha=1))
+
     plt.show()
