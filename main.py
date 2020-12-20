@@ -166,3 +166,21 @@ if __name__ == '__main__':
     # merged_df = merge_person_partner_data(female_df, male_df)
     #
     # print(merged_df)
+
+    colors = {0: 'red', 1: 'black'}
+    fig, ax = plt.subplots()
+    grouped = df.groupby('gender')
+    for key, group in grouped:
+        if key % 1 == 0:
+            group.plot(ax=ax, kind='scatter', x='attr1_1', y='age', label=key, color=colors[key], xlim=[0,60], ylim=[20,38])
+    plt.show()
+    # dla kobiet mniejsze znaczenie ma atrakcyjność
+
+    colors = {0: 'red', 1: 'black'}
+    fig, ax = plt.subplots()
+    grouped = df.groupby('gender')
+    for key, group in grouped:
+        if key % 1 == 0:
+            group.plot(ax=ax, kind='scatter', x='amb1_1', y='age', label=key, color=colors[key], xlim=[-0.1,20], ylim=[20,38])
+    plt.show()
+    # dla mężczyzn mniejsze znaczenie mają ambicje
