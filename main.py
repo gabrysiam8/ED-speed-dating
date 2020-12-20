@@ -66,14 +66,14 @@ if __name__ == '__main__':
     race_stat = df_without_duplicates.groupby(['race']).size().rename("count").to_frame().reset_index()
     field_stat = df_without_duplicates.groupby(['field_cd']).size().rename("count").to_frame().reset_index()
 
-    dict = {1: 'black', 2: 'white', 3: 'latino', 4: 'asian', 5: 'native', 6: 'other'}
+    dict_races = {1: 'black', 2: 'white', 3: 'latino', 4: 'asian', 5: 'native', 6: 'other'}
 
-    race_stat['value'] = race_stat['race'].map(dict)
+    race_stat['value'] = race_stat['race'].map(dict_races)
     notclassified = df_without_duplicates.shape[0] - race_stat['count'].sum()
     for i in range(1, 6):
         if not (i in race_stat.race):
             race_stat = race_stat.append(
-                pd.DataFrame([[i, 0, dict[i]]], columns=['race', 'count', 'value']))
+                pd.DataFrame([[i, 0, dict_races[i]]], columns=['race', 'count', 'value']))
 
     race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
     print(race_stat)
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     for i in range(1, 18):
         if not (i in field_stat.field_cd):
             field_stat = field_stat.append(
-                pd.DataFrame([[i, 0, dict[i]]], columns=['field_cd', 'count', 'value']))
+                pd.DataFrame([[i, 0, dict_fields_of_study[i]]], columns=['field_cd', 'count', 'value']))
 
     field_stat = field_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['field_cd', 'count', 'value']))
     print(field_stat)
@@ -107,6 +107,28 @@ if __name__ == '__main__':
     # clustering
     cols = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
     partial_df = df.loc[:, cols]
+
+    x = "age"
+    fig, ax = plt.subplots(nrows=1, ncols=1, sharex=False, sharey=False)
+    fig.suptitle(x, fontsize=20)
+
+
+    variable = df[x].fillna(df[x].mean())
+    breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
+    variable = variable[(variable > breaks[0]) & (variable <
+                                                  breaks[10])]
+    sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax)
+    des = df[x].describe()
+    ax.axvline(des["25%"], ls='--')
+    ax.axvline(des["mean"], ls='--')
+    ax.axvline(des["75%"], ls='--')
+    ax.grid(True)
+    des = round(des, 2).apply(lambda x: str(x))
+    box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
+                     "max: " + des["max"]))
+    ax.text(0.95, 0.95, box, transform=ax.transAxes, fontsize=10, va='top', ha="right", bbox=dict(boxstyle='round', facecolor='white', alpha=1))
+
+    plt.show()
 
     # dendrogram = sch.dendrogram(sch.linkage(partial_df, method='ward'))
     # plt.show()
