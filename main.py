@@ -8,8 +8,12 @@ from sklearn.metrics import silhouette_score
 from sklearn import preprocessing
 from pandas.plotting import parallel_coordinates
 from scipy.cluster.hierarchy import dendrogram, linkage
+from sklearn.model_selection import train_test_split
 import seaborn as sns
 from numpy import loadtxt
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import metrics
+from sklearn.metrics import classification_report, confusion_matrix
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -60,18 +64,19 @@ def run_pca(n_components, original_df):
 
 def run_clustering(original_df):
     # data normalization
-    normalized_vectors = preprocessing.normalize(partial_df)
+    normalized_vectors = preprocessing.normalize(original_df)
 
     kmeans = []
     normalized_kmeans = []
     silhouette = []
     normalized_silhouette = []
+    cluster_num = range(2, 10)
 
-    for i in range(2, 10):
-        kmeans_i = KMeans(n_clusters=i).fit(partial_df)
+    for i in cluster_num:
+        kmeans_i = KMeans(n_clusters=i).fit(original_df)
         normalized_kmeans_i = KMeans(n_clusters=i).fit(normalized_vectors)
 
-        silhouette_i = silhouette_score(partial_df, kmeans_i.labels_, metric='euclidean')
+        silhouette_i = silhouette_score(original_df, kmeans_i.labels_, metric='euclidean')
         silhouette_norm_i = silhouette_score(normalized_vectors, normalized_kmeans_i.labels_, metric='cosine')
 
         kmeans.append(kmeans_i)
@@ -85,7 +90,7 @@ def run_clustering(original_df):
         print('Cosine kmeans:{}'.format(silhouette_norm_i))
 
     plt.title('Silhouette score')
-    sns.lineplot(x=range(2, 10), y=normalized_silhouette)
+    sns.lineplot(x=cluster_num, y=normalized_silhouette)
     plt.show()
 
     max_value = max(normalized_silhouette)
@@ -114,9 +119,9 @@ if __name__ == '__main__':
                     'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'match', 'age_o', 'samerace']
     df = df[column_names]
 
-    # for col in column_names[2:]:
-    #     sns.displot(df, x=col)
-    #     plt.show()
+    for col in column_names[2:]:
+        sns.displot(df, x=col)
+        plt.show()
 
     df_without_duplicates = df.drop_duplicates(subset=['iid'])
     race_stat = df_without_duplicates.groupby(['race']).size().rename("count").to_frame().reset_index()
@@ -132,11 +137,11 @@ if __name__ == '__main__':
                 pd.DataFrame([[i, 0, dict_races[i]]], columns=['race', 'count', 'value']))
 
     race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
-    race_stat = race_stat.set_index('value')
-    print(race_stat)
-    race_stat.plot.pie(autopct="%.1f%%", y='count')
-    plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.15), ncol=2)
-    plt.show()
+    # race_stat = race_stat.set_index('value')
+    # print(race_stat)
+    # race_stat.plot.pie(autopct="%.1f%%", y='count')
+    # plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.15), ncol=2)
+    # plt.show()
 
     dict_fields_of_study = {1: 'Law', 2:'Math', 3:'Social Science, Psychologist', 4: 'Medical Science, Pharmaceuticals, and Bio Tech',
                             5: 'Engineering', 6: 'English / Creative Writing / Journalism', 7: 'History / Religion / Philosophy',
@@ -193,13 +198,14 @@ if __name__ == '__main__':
 
     cols1 = [x for x in cols1 if x]
     print(cols1)
-    partial_df = df.loc[:, cols1]
+    df_to_clustering = df.loc[:, cols1]
+    # df_to_clustering['gender'] = df.gender
     # dendrogram = dendrogram(linkage(partial_df, method='ward'))
     # plt.show()
-    kmeans_model, norm_kmeans_model = run_clustering(partial_df)
+    kmeans_model, norm_kmeans_model = run_clustering(df_to_clustering)
 
     # Principal Component Analysis
-    pca_df = run_pca(2, partial_df)
+    pca_df = run_pca(2, df_to_clustering)
     pca_df['labels'] = kmeans_model.labels_
     plt.title('kmeans')
     sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
@@ -211,32 +217,68 @@ if __name__ == '__main__':
     sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
     plt.show()
 
-    partial_df['labels'] = norm_kmeans_model.labels_
+    draw_cluster_barplot(df_to_clustering, norm_kmeans_model)
 
-    draw_cluster_barplot(partial_df, norm_kmeans_model)
+    df_to_clustering['labels'] = norm_kmeans_model.labels_
 
     # atrakcyjność, inteligencja
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.intel1_1, hue=pca_df.labels, palette="Set2")
+    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.intel1_1, hue=df_to_clustering.labels, palette="Set2")
     plt.show()
 
     # atracyjność, wspólne zainteresowania
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.shar1_1, hue=pca_df.labels, palette="Set2")
+    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.shar1_1, hue=df_to_clustering.labels, palette="Set2")
     plt.show()
 
     # atracyjność, ambicja
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.amb1_1, hue=pca_df.labels, palette="Set2")
+    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.amb1_1, hue=df_to_clustering.labels, palette="Set2")
     plt.show()
 
     # atrakcyjność, szczerość
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.sinc1_1, hue=pca_df.labels, palette="Set2")
+    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.sinc1_1, hue=df_to_clustering.labels, palette="Set2")
     plt.show()
 
     # Make the plot
+    # set all variables between 0 and 1
+    scaler = preprocessing.MinMaxScaler()
+    df_scaled = pd.DataFrame(scaler.fit_transform(df_to_clustering), columns=df_to_clustering.columns)
     plt.figure(figsize=(15, 10))
-    parallel_coordinates(partial_df, 'labels', colormap=plt.get_cmap("Set1"))
+    parallel_coordinates(df_scaled, class_column='labels', colormap=plt.get_cmap("Set1"))
     plt.xlabel("Features of data set")
     plt.ylabel("Importance")
     plt.show()
+
+    # Classification
+    df_to_classification = df.loc[:, cols1]
+    X_train, X_test, y_train, y_test = train_test_split(df_to_classification, df.gender, test_size=0.3)  # 70% training and 30% test
+
+    # Create KNN Classifier
+    knn = KNeighborsClassifier(n_neighbors=3)
+
+    # Train the model using the training sets
+    knn.fit(X_train, y_train)
+
+    # Predict the response for test dataset
+    y_pred = knn.predict(X_test)
+
+    # Model Accuracy, how often is the classifier correct?
+    print("Accuracy: ", metrics.accuracy_score(y_test, y_pred))
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cf_matrix, annot=True, cmap='Blues', fmt='g')
+    print(classification_report(y_test, y_pred))
+
+    error = []
+
+    # Calculating error for K values between 1 and 40
+    for i in range(1, 40):
+        knn = KNeighborsClassifier(n_neighbors=i)
+        knn.fit(X_train, y_train)
+        pred_i = knn.predict(X_test)
+        error.append(np.mean(pred_i != y_test))
+    plt.figure(figsize=(12, 6))
+    plt.plot(range(1, 40), error, color='red', linestyle='dashed', marker='o', markerfacecolor='blue', markersize=10)
+    plt.title('Error Rate K Value')
+    plt.xlabel('K Value')
+    plt.ylabel('Mean Error')
 
     # female_df = df[df['gender'] == 0].copy()
     # male_df = df[df['gender'] == 1].copy()
