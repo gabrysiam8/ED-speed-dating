@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn import preprocessing
+from pandas.plotting import parallel_coordinates
+from scipy.cluster.hierarchy import dendrogram, linkage
 import seaborn as sns
 from numpy import loadtxt
 
@@ -50,17 +52,71 @@ def replace_missing_values(original_df):
 def run_pca(n_components, original_df):
     pca = PCA(n_components=n_components)
     principal_components = pca.fit_transform(original_df.values)
+    print(pca.components_)
     pca_df = pd.DataFrame(data=principal_components, index=original_df.index)
     pca_df.rename({i: "PC{}".format(i) for i in range(n_components)}, axis=1, inplace=True)
     return pca_df
+
+
+def run_clustering(original_df):
+    # data normalization
+    normalized_vectors = preprocessing.normalize(partial_df)
+
+    kmeans = []
+    normalized_kmeans = []
+    silhouette = []
+    normalized_silhouette = []
+
+    for i in range(2, 10):
+        kmeans_i = KMeans(n_clusters=i).fit(partial_df)
+        normalized_kmeans_i = KMeans(n_clusters=i).fit(normalized_vectors)
+
+        silhouette_i = silhouette_score(partial_df, kmeans_i.labels_, metric='euclidean')
+        silhouette_norm_i = silhouette_score(normalized_vectors, normalized_kmeans_i.labels_, metric='cosine')
+
+        kmeans.append(kmeans_i)
+        normalized_kmeans.append(normalized_kmeans_i)
+        silhouette.append(silhouette_i)
+        normalized_silhouette.append(silhouette_norm_i)
+
+        # print results
+        print('{} clusters'.format(i))
+        print('kmeans: {}'.format(silhouette_i))
+        print('Cosine kmeans:{}'.format(silhouette_norm_i))
+
+    plt.title('Silhouette score')
+    sns.lineplot(x=range(2, 10), y=normalized_silhouette)
+    plt.show()
+
+    max_value = max(normalized_silhouette)
+    max_index = normalized_silhouette.index(max_value)
+    print('Best cluster number: {}'.format(max_index + 2))
+    return kmeans[max_index], normalized_kmeans[max_index]
+
+
+def draw_cluster_barplot(original_df, model):
+    # set all variables between 0 and 1
+    scaler = preprocessing.MinMaxScaler()
+    df_scaled = pd.DataFrame(scaler.fit_transform(original_df), columns=original_df.columns)
+    df_scaled['cluster'] = model.labels_
+
+    tidy = df_scaled.melt(id_vars='cluster')
+    plt.subplots(figsize=(15, 5))
+    sns.barplot(x='cluster', y='value', hue='variable', data=tidy, palette='Set3')
+    plt.legend([''])
+    plt.show()
 
 
 if __name__ == '__main__':
     df = pd.read_csv('Speed Dating Data.csv', encoding="ISO-8859-1")
 
     column_names = ['iid', 'pid', 'gender', 'race', 'age', 'field_cd', 'career_c', 'int_corr', 'attr1_1', 'sinc1_1',
-                    'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'match']
+                    'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'match', 'age_o', 'samerace']
     df = df[column_names]
+
+    # for col in column_names[2:]:
+    #     sns.displot(df, x=col)
+    #     plt.show()
 
     df_without_duplicates = df.drop_duplicates(subset=['iid'])
     race_stat = df_without_duplicates.groupby(['race']).size().rename("count").to_frame().reset_index()
@@ -76,7 +132,11 @@ if __name__ == '__main__':
                 pd.DataFrame([[i, 0, dict_races[i]]], columns=['race', 'count', 'value']))
 
     race_stat = race_stat.append(pd.DataFrame([[0, notclassified, 'notclassified']], columns=['race', 'count', 'value']))
+    race_stat = race_stat.set_index('value')
     print(race_stat)
+    race_stat.plot.pie(autopct="%.1f%%", y='count')
+    plt.legend(loc="lower center", bbox_to_anchor=(0.5, -0.15), ncol=2)
+    plt.show()
 
     dict_fields_of_study = {1: 'Law', 2:'Math', 3:'Social Science, Psychologist', 4: 'Medical Science, Pharmaceuticals, and Bio Tech',
                             5: 'Engineering', 6: 'English / Creative Writing / Journalism', 7: 'History / Religion / Philosophy',
@@ -96,22 +156,19 @@ if __name__ == '__main__':
     print(field_stat)
 
     df = df.set_index(['iid', 'pid'])
-    print(df)
+
+    # remove rows with nan race value
+    df = df[df['race'].notna()]
 
     # outliers detection
-    df = detect_outliers(df, ['int_corr'])
+    df = detect_outliers(df, ['int_corr', 'attr1_1', 'sinc1_1', 'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1'])
 
     # replace missing values with mean
     df = replace_missing_values(df)
 
-    # clustering
-    cols = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
-    partial_df = df.loc[:, cols]
-
     x = "age"
     fig, ax = plt.subplots(nrows=1, ncols=1, sharex=False, sharey=False)
     fig.suptitle(x, fontsize=20)
-
 
     variable = df[x].fillna(df[x].mean())
     breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
@@ -130,57 +187,55 @@ if __name__ == '__main__':
 
     plt.show()
 
-    # dendrogram = sch.dendrogram(sch.linkage(partial_df, method='ward'))
+
+    # clustering
+    cols1, cols2 = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
+
+    cols1 = [x for x in cols1 if x]
+    print(cols1)
+    partial_df = df.loc[:, cols1]
+    # dendrogram = dendrogram(linkage(partial_df, method='ward'))
     # plt.show()
-
-    # prepare models
-    kmeans = KMeans(n_clusters=2).fit(partial_df)
-    # data normalization
-    normalized_vectors = preprocessing.normalize(partial_df)
-    normalized_kmeans = KMeans(n_clusters=2).fit(normalized_vectors)
-
-    # print results
-    print('2 clusters')
-    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
-    print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
-                                                     normalized_kmeans.labels_,
-                                                     metric='cosine')))
-
-    # prepare models
-    kmeans = KMeans(n_clusters=3).fit(partial_df)
-    # data normalization
-    normalized_vectors = preprocessing.normalize(partial_df)
-    normalized_kmeans = KMeans(n_clusters=3).fit(normalized_vectors)
-
-    # print results
-    print('3 clusters')
-    print('kmeans: {}'.format(silhouette_score(partial_df, kmeans.labels_, metric='euclidean')))
-    print('Cosine kmeans:{}'.format(silhouette_score(normalized_vectors,
-                                                     normalized_kmeans.labels_,
-                                                     metric='cosine')))
+    kmeans_model, norm_kmeans_model = run_clustering(partial_df)
 
     # Principal Component Analysis
     pca_df = run_pca(2, partial_df)
-    pca_df['labels'] = kmeans.labels_
+    pca_df['labels'] = kmeans_model.labels_
     plt.title('kmeans')
     sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
     plt.show()
 
     norm_pca_df = pca_df.copy()
-    norm_pca_df['labels'] = normalized_kmeans.labels_
+    norm_pca_df['labels'] = norm_kmeans_model.labels_
     plt.title('cosine kmeans')
     sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
     plt.show()
 
-    # set all variables between 0 and 1
-    scaler = preprocessing.MinMaxScaler()
-    df_scaled = pd.DataFrame(scaler.fit_transform(partial_df), columns=partial_df.columns)
-    df_scaled['norm_kmeans'] = normalized_kmeans.labels_
+    partial_df['labels'] = norm_kmeans_model.labels_
 
-    tidy = df_scaled.melt(id_vars='norm_kmeans')
-    fig, ax = plt.subplots(figsize=(15, 5))
-    sns.barplot(x='norm_kmeans', y='value', hue='variable', data=tidy, palette='Set3')
-    plt.legend([''])
+    draw_cluster_barplot(partial_df, norm_kmeans_model)
+
+    # atrakcyjność, inteligencja
+    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.intel1_1, hue=pca_df.labels, palette="Set2")
+    plt.show()
+
+    # atracyjność, wspólne zainteresowania
+    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.shar1_1, hue=pca_df.labels, palette="Set2")
+    plt.show()
+
+    # atracyjność, ambicja
+    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.amb1_1, hue=pca_df.labels, palette="Set2")
+    plt.show()
+
+    # atrakcyjność, szczerość
+    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.sinc1_1, hue=pca_df.labels, palette="Set2")
+    plt.show()
+
+    # Make the plot
+    plt.figure(figsize=(15, 10))
+    parallel_coordinates(partial_df, 'labels', colormap=plt.get_cmap("Set1"))
+    plt.xlabel("Features of data set")
+    plt.ylabel("Importance")
     plt.show()
 
     # female_df = df[df['gender'] == 0].copy()
