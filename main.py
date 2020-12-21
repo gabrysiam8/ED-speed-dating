@@ -1,20 +1,14 @@
-import numpy as np
-import pandas
-import pandas as pd
-from sklearn.impute import SimpleImputer
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-from sklearn import preprocessing
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from numpy import loadtxt
-## for statistical tests
-import scipy
-import statsmodels.formula.api as smf
-import statsmodels.api as sm
+from sklearn import neighbors
+from sklearn.decomposition import PCA
+from sklearn.impute import SimpleImputer
 
-from sklearn import model_selection, preprocessing, feature_selection, ensemble, linear_model, metrics, decomposition
+
+## for statistical tests
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -345,3 +339,130 @@ if __name__ == '__main__':
                bbox=dict(boxstyle='round', facecolor='white', alpha=1))
 
     plt.show()
+
+
+    print(df_without_duplicates['race'].unique())
+    print(dtf.groupby('dec_o').size())
+    print(dtf.groupby('match').size())
+    import seaborn as sns
+
+    sns.countplot(df_without_duplicates['race'], label="Count")
+    plt.show()
+
+    import pylab as pl
+
+    df.hist(bins=30, figsize=(9, 9))
+    pl.suptitle("Histogram for each numeric input variable")
+    plt.savefig('fruits_hist')
+    plt.show()
+
+    from matplotlib import cm
+
+    feature_names = ['attr1_1', 'sinc1_1', 'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1']
+    X = df[feature_names]
+    y = df['match']
+    cmap = cm.get_cmap('gnuplot')
+
+    from pandas.plotting import scatter_matrix
+
+    df = pd.DataFrame(np.random.randn(1000, 4), columns=['A', 'B', 'C', 'D'])
+    pd.plotting.scatter_matrix(df, alpha=0.2)
+
+    # scatter = pd.plotting.scatter_matrix(X, c=y, marker='o', s=40, hist_kwds={'bins': 15}, figsize=(9, 9), cmap=cmap)
+    # plt.suptitle('Scatter-matrix for each input variable')
+    # plt.savefig('fruits_scatter_matrix')
+
+    from sklearn.model_selection import train_test_split
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+    from sklearn.preprocessing import MinMaxScaler
+
+    scaler = MinMaxScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    from sklearn.linear_model import LogisticRegression
+
+    logreg = LogisticRegression()
+    logreg.fit(X_train, y_train)
+    print('Accuracy of Logistic regression classifier on training set: {:.2f}'
+          .format(logreg.score(X_train, y_train)))
+    print('Accuracy of Logistic regression classifier on test set: {:.2f}'
+          .format(logreg.score(X_test, y_test)))
+
+    from sklearn.tree import DecisionTreeClassifier
+
+    clf = DecisionTreeClassifier().fit(X_train, y_train)
+    print('Accuracy of Decision Tree classifier on training set: {:.2f}'
+          .format(clf.score(X_train, y_train)))
+    print('Accuracy of Decision Tree classifier on test set: {:.2f}'
+          .format(clf.score(X_test, y_test)))
+
+    from sklearn.neighbors import KNeighborsClassifier
+
+    knn = KNeighborsClassifier()
+    knn.fit(X_train, y_train)
+    print('Accuracy of K-NN classifier on training set: {:.2f}'
+          .format(knn.score(X_train, y_train)))
+    print('Accuracy of K-NN classifier on test set: {:.2f}'
+          .format(knn.score(X_test, y_test)))
+
+    from sklearn.metrics import classification_report
+    from sklearn.metrics import confusion_matrix
+
+    pred = knn.predict(X_test)
+    print(confusion_matrix(y_test, pred))
+    print(classification_report(y_test, pred))
+
+    import matplotlib.cm as cm
+    from matplotlib.colors import ListedColormap, BoundaryNorm
+    import matplotlib.patches as mpatches
+    import matplotlib.patches as mpatches
+
+    X = df[['mass', 'width', 'height', 'color_score']]
+    y = df['fruit_label']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+    X_mat = None
+    y_mat = None
+
+    def plot_fruit_knn(X, y, n_neighbors, weights):
+        X_mat = X[['height', 'width']].as_matrix()
+        y_mat = y.as_matrix()
+        # Create color maps
+        cmap_light = ListedColormap(['#FFAAAA', '#AAFFAA', '#AAAAFF', '#AFAFAF'])
+        cmap_bold = ListedColormap(['#FF0000', '#00FF00', '#0000FF', '#AFAFAF'])
+
+
+    clf = neighbors.KNeighborsClassifier(n_neighbors=2, weights=weights)
+    clf.fit(X_mat, y_mat)
+    # Plot the decision boundary by assigning a color in the color map
+    # to each mesh point.
+
+    mesh_step_size = .01  # step size in the mesh
+    plot_symbol_size = 50
+
+    x_min, x_max = X_mat[:, 0].min() - 1, X_mat[:, 0].max() + 1
+    y_min, y_max = X_mat[:, 1].min() - 1, X_mat[:, 1].max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, mesh_step_size),
+                         np.arange(y_min, y_max, mesh_step_size))
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()])
+    # Put the result into a color plot
+    Z = Z.reshape(xx.shape)
+    plt.figure()
+    plt.pcolormesh(xx, yy, Z, cmap=cmap_light)
+    # Plot training points
+    plt.scatter(X_mat[:, 0], X_mat[:, 1], s=plot_symbol_size, c=y, cmap=cmap_bold, edgecolor='black')
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+    patch0 = mpatches.Patch(color='#FF0000', label='apple')
+    patch1 = mpatches.Patch(color='#00FF00', label='mandarin')
+    patch2 = mpatches.Patch(color='#0000FF', label='orange')
+    patch3 = mpatches.Patch(color='#AFAFAF', label='lemon')
+    plt.legend(handles=[patch0, patch1, patch2, patch3])
+    plt.xlabel('height (cm)')
+    plt.ylabel('width (cm)')
+    plt.title("4-Class classification (k = %i, weights = '%s')"
+              % (n_neighbors, weights))
+    plt.show()
+    plot_fruit_knn(X_train, y_train, 5, 'uniform')
