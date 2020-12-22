@@ -10,6 +10,12 @@ from pandas.plotting import parallel_coordinates
 from scipy.cluster.hierarchy import dendrogram, linkage
 import seaborn as sns
 from numpy import loadtxt
+import matplotlib.cm as cm
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn import tree
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -24,6 +30,30 @@ def merge_person_partner_data(f_df, m_df):
 
     return f_df.copy()
 
+def plot_kmeans_clusters(x_column, y_column, df, clusters_data):
+    colors = cm.nipy_spectral(clusters_data.labels_.astype(float) / len(clusters_data.cluster_centers_))
+
+    x = df[x_column]
+    y = df[y_column]
+
+    plt.scatter(x, y, marker='.', s=30, lw=0, alpha=0.7, c=colors, edgecolor='k')
+
+    # Labeling the clusters
+    centers = clusters_data.cluster_centers_
+    # Draw white circles at cluster centers
+    plt.scatter(centers[:, df.columns.get_loc(x_column)],
+                centers[:, df.columns.get_loc(y_column)],
+                marker='o', c="white", alpha=1, s=200, edgecolor='k')
+
+    for i, c in enumerate(centers):
+        plt.scatter(c[df.columns.get_loc(x_column)],
+                    c[df.columns.get_loc(y_column)],
+                    marker='$%d$' % i, alpha=1, s=50, edgecolor='k')
+
+    plt.xlabel(x_column)
+    plt.ylabel(y_column)
+
+    plt.show()
 
 def detect_outliers(original_df, columns):
     # outliers detection (for now only for interests correlation)
@@ -164,100 +194,128 @@ if __name__ == '__main__':
     df = detect_outliers(df, ['int_corr', 'attr1_1', 'sinc1_1', 'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1'])
 
     # replace missing values with mean
-    df = replace_missing_values(df)
-
-    x = "age"
-    fig, ax = plt.subplots(nrows=1, ncols=1, sharex=False, sharey=False)
-    fig.suptitle(x, fontsize=20)
-
-    variable = df[x].fillna(df[x].mean())
-    breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
-    variable = variable[(variable > breaks[0]) & (variable <
-                                                  breaks[10])]
-    sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax)
-    des = df[x].describe()
-    ax.axvline(des["25%"], ls='--')
-    ax.axvline(des["mean"], ls='--')
-    ax.axvline(des["75%"], ls='--')
-    ax.grid(True)
-    des = round(des, 2).apply(lambda x: str(x))
-    box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
-                     "max: " + des["max"]))
-    ax.text(0.95, 0.95, box, transform=ax.transAxes, fontsize=10, va='top', ha="right", bbox=dict(boxstyle='round', facecolor='white', alpha=1))
-
-    plt.show()
-
-
-    # clustering
-    cols1, cols2 = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
-
-    cols1 = [x for x in cols1 if x]
-    print(cols1)
-    partial_df = df.loc[:, cols1]
-    # dendrogram = dendrogram(linkage(partial_df, method='ward'))
-    # plt.show()
-    kmeans_model, norm_kmeans_model = run_clustering(partial_df)
-
-    # Principal Component Analysis
-    pca_df = run_pca(2, partial_df)
-    pca_df['labels'] = kmeans_model.labels_
-    plt.title('kmeans')
-    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
-    plt.show()
-
-    norm_pca_df = pca_df.copy()
-    norm_pca_df['labels'] = norm_kmeans_model.labels_
-    plt.title('cosine kmeans')
-    sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
-    plt.show()
-
-    partial_df['labels'] = norm_kmeans_model.labels_
-
-    draw_cluster_barplot(partial_df, norm_kmeans_model)
-
-    # atrakcyjność, inteligencja
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.intel1_1, hue=pca_df.labels, palette="Set2")
-    plt.show()
-
-    # atracyjność, wspólne zainteresowania
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.shar1_1, hue=pca_df.labels, palette="Set2")
-    plt.show()
-
-    # atracyjność, ambicja
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.amb1_1, hue=pca_df.labels, palette="Set2")
-    plt.show()
-
-    # atrakcyjność, szczerość
-    sns.scatterplot(x=partial_df.attr1_1, y=partial_df.sinc1_1, hue=pca_df.labels, palette="Set2")
-    plt.show()
-
-    # Make the plot
-    plt.figure(figsize=(15, 10))
-    parallel_coordinates(partial_df, 'labels', colormap=plt.get_cmap("Set1"))
-    plt.xlabel("Features of data set")
-    plt.ylabel("Importance")
-    plt.show()
-
-    # female_df = df[df['gender'] == 0].copy()
-    # male_df = df[df['gender'] == 1].copy()
-    # merged_df = merge_person_partner_data(female_df, male_df)
+    # df = replace_missing_values(df)
     #
-    # print(merged_df)
+    # x = "age"
+    # fig, ax = plt.subplots(nrows=1, ncols=1, sharex=False, sharey=False)
+    # fig.suptitle(x, fontsize=20)
+    #
+    # variable = df[x].fillna(df[x].mean())
+    # breaks = np.quantile(variable, q=np.linspace(0, 1, 11))
+    # variable = variable[(variable > breaks[0]) & (variable <
+    #                                               breaks[10])]
+    # sns.distplot(variable, hist=True, kde=True, kde_kws={"shade": True}, ax=ax)
+    # des = df[x].describe()
+    # ax.axvline(des["25%"], ls='--')
+    # ax.axvline(des["mean"], ls='--')
+    # ax.axvline(des["75%"], ls='--')
+    # ax.grid(True)
+    # des = round(des, 2).apply(lambda x: str(x))
+    # box = '\n'.join(("min: " + des["min"], "25%: " + des["25%"], "mean: " + des["mean"], "75%: " + des["75%"],
+    #                  "max: " + des["max"]))
+    # ax.text(0.95, 0.95, box, transform=ax.transAxes, fontsize=10, va='top', ha="right", bbox=dict(boxstyle='round', facecolor='white', alpha=1))
+    #
+    # plt.show()
+    #
+    #
+    # # clustering
+    # cols1, cols2 = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
+    #
+    # cols1 = [x for x in cols1 if x]
+    # print(cols1)
+    # partial_df = df.loc[:, cols1]
+    # # dendrogram = dendrogram(linkage(partial_df, method='ward'))
+    # # plt.show()
+    # kmeans_model, norm_kmeans_model = run_clustering(partial_df)
+    #
+    # # Principal Component Analysis
+    # pca_df = run_pca(2, partial_df)
+    # pca_df['labels'] = kmeans_model.labels_
+    # plt.title('kmeans')
+    # sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # norm_pca_df = pca_df.copy()
+    # norm_pca_df['labels'] = norm_kmeans_model.labels_
+    # plt.title('cosine kmeans')
+    # sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # partial_df['labels'] = norm_kmeans_model.labels_
+    #
+    # draw_cluster_barplot(partial_df, norm_kmeans_model)
+    #
+    # # atrakcyjność, inteligencja
+    # sns.scatterplot(x=partial_df.attr1_1, y=partial_df.intel1_1, hue=pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # # atracyjność, wspólne zainteresowania
+    # sns.scatterplot(x=partial_df.attr1_1, y=partial_df.shar1_1, hue=pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # # atracyjność, ambicja
+    # sns.scatterplot(x=partial_df.attr1_1, y=partial_df.amb1_1, hue=pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # # atrakcyjność, szczerość
+    # sns.scatterplot(x=partial_df.attr1_1, y=partial_df.sinc1_1, hue=pca_df.labels, palette="Set2")
+    # plt.show()
+    #
+    # # Make the plot
+    # plt.figure(figsize=(15, 10))
+    # parallel_coordinates(partial_df, 'labels', colormap=plt.get_cmap("Set1"))
+    # plt.xlabel("Features of data set")
+    # plt.ylabel("Importance")
+    # plt.show()
+    #
+    # # female_df = df[df['gender'] == 0].copy()
+    # # male_df = df[df['gender'] == 1].copy()
+    # # merged_df = merge_person_partner_data(female_df, male_df)
+    # #
+    # # print(merged_df)
+    #
+    # colors = {0: 'red', 1: 'black'}
+    # fig, ax = plt.subplots()
+    # grouped = df.groupby('gender')
+    # for key, group in grouped:
+    #     if key % 1 == 0:
+    #         group.plot(ax=ax, kind='scatter', x='attr1_1', y='age', label=key, color=colors[key], xlim=[0,60], ylim=[20,38])
+    # plt.show()
+    # # dla kobiet mniejsze znaczenie ma atrakcyjność
+    #
+    # colors = {0: 'red', 1: 'black'}
+    # fig, ax = plt.subplots()
+    # grouped = df.groupby('gender')
+    # for key, group in grouped:
+    #     if key % 1 == 0:
+    #         group.plot(ax=ax, kind='scatter', x='amb1_1', y='age', label=key, color=colors[key], xlim=[-0.1,20], ylim=[20,38])
+    # plt.show()
+    # # dla mężczyzn mniejsze znaczenie mają ambicje
 
-    colors = {0: 'red', 1: 'black'}
-    fig, ax = plt.subplots()
-    grouped = df.groupby('gender')
-    for key, group in grouped:
-        if key % 1 == 0:
-            group.plot(ax=ax, kind='scatter', x='attr1_1', y='age', label=key, color=colors[key], xlim=[0,60], ylim=[20,38])
-    plt.show()
-    # dla kobiet mniejsze znaczenie ma atrakcyjność
+    column_names = ['attr1_1', 'age']
+    df_without_duplicates = df_without_duplicates[column_names]
+    df_without_duplicates["attr1_1"] = df_without_duplicates["attr1_1"].fillna(df_without_duplicates["attr1_1"].mean())
+    df_without_duplicates["age"] = df_without_duplicates["age"].fillna(df_without_duplicates["age"].mean())
+    df_new = df_without_duplicates[column_names]
+    df_new_form = pd.DataFrame(MinMaxScaler().fit_transform(df_new))
+    df_new_form.columns = df_new.columns
+    train, test = train_test_split(df_new_form, test_size=0.5, random_state=0)
 
-    colors = {0: 'red', 1: 'black'}
-    fig, ax = plt.subplots()
-    grouped = df.groupby('gender')
-    for key, group in grouped:
-        if key % 1 == 0:
-            group.plot(ax=ax, kind='scatter', x='amb1_1', y='age', label=key, color=colors[key], xlim=[-0.1,20], ylim=[20,38])
-    plt.show()
-    # dla mężczyzn mniejsze znaczenie mają ambicje
+    kmeans = KMeans(
+        init="random",
+        n_clusters=3,
+        n_init=10,
+        max_iter=300,
+        random_state=43,
+    )
+
+    cluster_data = kmeans.fit(df_new_form)
+    plot_kmeans_clusters("attr1_1", "age", df_new_form, cluster_data)
+
+    neigh = KNeighborsClassifier(n_neighbors=3)
+    neigh.fit(train, cluster_data.labels_[train.index])
+    neigh.predict(test)
+    print(neigh.score(test, cluster_data.labels_[test.index]))
+    clf = tree.DecisionTreeClassifier()
+    clf = clf.fit(train, cluster_data.labels_[train.index])
+    print(tree.plot_tree(clf, filled=True))
