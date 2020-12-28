@@ -33,15 +33,32 @@ def detect_outliers(original_df, columns):
     for col in columns:
         mean = original_df[col].mean()
         std = original_df[col].std()
-        outliers_df = pd.DataFrame()
+        outliers_df = pd.DataFrame(index=original_df.index)
         outliers_df['is_outlier'] = abs(original_df[col] - mean) > 3 * std
-        # print outliers
-        print('Outlier values for ' + col + ': ')
-        print(original_df[outliers_df.any(axis=1)])
+
         outlier_sum = outliers_df.is_outlier.sum()
         print('Number of outliers for ' + col + ': ' + str(outlier_sum))
-        # remove outliers from original dataframe
-        original_df = original_df[~outliers_df.any(axis=1)]
+
+        outliers = original_df[outliers_df.any(axis=1)]
+        # remove outliers
+        no_outliers = original_df[~outliers_df.any(axis=1)]
+
+        # print outliers
+        print('Outlier values for ' + col + ': ')
+        print(outliers)
+
+        # plot blue histogram with red outliers
+        plt.hist(outliers[col], color='red')
+        plt.hist(no_outliers[col], color='blue')
+        plt.title(col)
+        plt.show()
+
+        # plot only outliers histogram
+        plt.hist(outliers[col], color='red')
+        plt.title('Outliers for ' + col)
+        plt.show()
+
+        original_df = no_outliers
 
     return original_df
 
@@ -62,6 +79,21 @@ def run_pca(n_components, original_df):
     return pca_df
 
 
+def clustering(cluster_num, original_df, normalized_vectors):
+    kmeans = KMeans(n_clusters=cluster_num).fit(original_df)
+    normalized_kmeans = KMeans(n_clusters=cluster_num).fit(normalized_vectors)
+
+    silhouette = silhouette_score(original_df, kmeans.labels_, metric='euclidean')
+    silhouette_norm = silhouette_score(normalized_vectors, normalized_kmeans.labels_, metric='cosine')
+
+    # print results
+    print('{} clusters'.format(cluster_num))
+    print('kmeans: {}'.format(silhouette))
+    print('Cosine kmeans:{}'.format(silhouette_norm))
+
+    return kmeans, normalized_kmeans, silhouette, silhouette_norm
+
+
 def run_clustering(original_df):
     # data normalization
     normalized_vectors = preprocessing.normalize(original_df)
@@ -73,21 +105,13 @@ def run_clustering(original_df):
     cluster_num = range(2, 10)
 
     for i in cluster_num:
-        kmeans_i = KMeans(n_clusters=i).fit(original_df)
-        normalized_kmeans_i = KMeans(n_clusters=i).fit(normalized_vectors)
-
-        silhouette_i = silhouette_score(original_df, kmeans_i.labels_, metric='euclidean')
-        silhouette_norm_i = silhouette_score(normalized_vectors, normalized_kmeans_i.labels_, metric='cosine')
+        kmeans_i, norm_kmeans_i, silhouette_i, silhouette_norm_i = clustering(i, original_df, normalized_vectors)
+        norm_kmeans_i = KMeans(n_clusters=i).fit(normalized_vectors)
 
         kmeans.append(kmeans_i)
-        normalized_kmeans.append(normalized_kmeans_i)
+        normalized_kmeans.append(norm_kmeans_i)
         silhouette.append(silhouette_i)
         normalized_silhouette.append(silhouette_norm_i)
-
-        # print results
-        print('{} clusters'.format(i))
-        print('kmeans: {}'.format(silhouette_i))
-        print('Cosine kmeans:{}'.format(silhouette_norm_i))
 
     plt.title('Silhouette score')
     sns.lineplot(x=cluster_num, y=normalized_silhouette)
@@ -109,6 +133,26 @@ def draw_cluster_barplot(original_df, model):
     plt.subplots(figsize=(15, 5))
     sns.barplot(x='cluster', y='value', hue='variable', data=tidy, palette='Set3')
     plt.legend([''])
+    plt.show()
+
+
+def plot_feature_dependency(clustered_df):
+    # atrakcyjność, inteligencja
+    sns.scatterplot(x=clustered_df.attr1_1, y=clustered_df.intel1_1, hue=clustered_df.labels,
+                    palette="Set2")
+    plt.show()
+
+    # wspólne zainteresowania, inteligencja
+    sns.scatterplot(x=clustered_df.shar1_1, y=clustered_df.intel1_1, hue=clustered_df.labels,
+                    palette="Set2")
+    plt.show()
+
+    # atracyjność, ambicja
+    sns.scatterplot(x=clustered_df.attr1_1, y=clustered_df.amb1_1, hue=clustered_df.labels, palette="Set2")
+    plt.show()
+
+    # atrakcyjność, szczerość
+    sns.scatterplot(x=clustered_df.attr1_1, y=clustered_df.sinc1_1, hue=clustered_df.labels, palette="Set2")
     plt.show()
 
 
@@ -214,23 +258,22 @@ if __name__ == '__main__':
     # dla mężczyzn mniejsze znaczenie mają ambicje
 
 
-    # clustering
+    # clustering (gender,attr1_1,sinc1_1,intel1_1,fun1_1,amb1_1,shar1_1)
     cols1, cols2 = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
 
     cols1 = [x for x in cols1 if x]
     print(cols1)
     df_to_clustering = df.loc[:, cols1]
-    # df_to_clustering['gender'] = df.gender
     # dendrogram = dendrogram(linkage(partial_df, method='ward'))
     # plt.show()
     kmeans_model, norm_kmeans_model = run_clustering(df_to_clustering)
 
     # Principal Component Analysis
     pca_df = run_pca(2, df_to_clustering)
-    plt.title('K-means')
+    plt.title('K-means (best cluster number)')
     sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=kmeans_model.labels_, palette="Set2")
     plt.show()
-    plt.title('Cosine K-means')
+    plt.title('Cosine K-means (2 clusters)')
     sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans_model.labels_, palette="Set2")
     plt.show()
 
@@ -238,21 +281,7 @@ if __name__ == '__main__':
 
     df_to_clustering['labels'] = norm_kmeans_model.labels_
 
-    # atrakcyjność, inteligencja
-    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.intel1_1, hue=df_to_clustering.labels, palette="Set2")
-    plt.show()
-
-    # atracyjność, wspólne zainteresowania
-    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.shar1_1, hue=df_to_clustering.labels, palette="Set2")
-    plt.show()
-
-    # atracyjność, ambicja
-    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.amb1_1, hue=df_to_clustering.labels, palette="Set2")
-    plt.show()
-
-    # atrakcyjność, szczerość
-    sns.scatterplot(x=df_to_clustering.attr1_1, y=df_to_clustering.sinc1_1, hue=df_to_clustering.labels, palette="Set2")
-    plt.show()
+    plot_feature_dependency(df_to_clustering)
 
     df['gender'].hist(by=df_to_clustering['labels'])
     pl.suptitle('Gender')
@@ -271,6 +300,19 @@ if __name__ == '__main__':
     plt.ylabel("Importance")
     plt.show()
 
+    # 3 clusters
+    normalized_vectors = preprocessing.normalize(df_to_clustering)
+    kmeans, norm_kmeans, silhouette, silhouette_norm = clustering(3, df_to_clustering, normalized_vectors)
+
+    plt.title('Cosine K-means (3 clusters)')
+    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans.labels_, palette="Set2")
+    plt.show()
+
+    df_to_clustering['labels'] = norm_kmeans.labels_
+    plot_feature_dependency(df_to_clustering)
+
+
+    # clustering (gender, age, age_o)
     cols2 = [x for x in cols2 if x]
     print(cols2)
     df_to_clustering = df.loc[:, cols2]
@@ -278,9 +320,9 @@ if __name__ == '__main__':
     kmeans_model, norm_kmeans_model = run_clustering(df_to_clustering)
 
     # Principal Component Analysis
-    norm_pca_df = run_pca(2, df_to_clustering)
-    plt.title('Cosine K-means')
-    sns.scatterplot(x=norm_pca_df.PC0, y=norm_pca_df.PC1, hue=norm_kmeans_model.labels_, palette="Set2")
+    pca_df = run_pca(2, df_to_clustering)
+    plt.title('Cosine K-means (2 clusters)')
+    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans_model.labels_, palette="Set2")
     plt.show()
 
     draw_cluster_barplot(df_to_clustering, norm_kmeans_model)
