@@ -301,8 +301,11 @@ if __name__ == '__main__':
     plt.show()
 
     # 3 clusters
+    df_to_clustering = df_to_clustering.drop(columns=['labels'])
     normalized_vectors = preprocessing.normalize(df_to_clustering)
     kmeans, norm_kmeans, silhouette, silhouette_norm = clustering(3, df_to_clustering, normalized_vectors)
+
+    draw_cluster_barplot(df_to_clustering, norm_kmeans)
 
     plt.title('Cosine K-means (3 clusters)')
     sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans.labels_, palette="Set2")
