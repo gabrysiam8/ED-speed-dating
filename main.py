@@ -13,6 +13,7 @@ import seaborn as sns
 from numpy import loadtxt
 from sklearn.metrics import classification_report, confusion_matrix
 import pylab as pl
+from sklearn.neighbors import KNeighborsClassifier
 
 
 def merge_person_partner_data(f_df, m_df):
@@ -48,15 +49,10 @@ def detect_outliers(original_df, columns):
         print(outliers)
 
         # plot blue histogram with red outliers
-        plt.hist(outliers[col], color='red')
-        plt.hist(no_outliers[col], color='blue')
-        plt.title(col)
-        plt.show()
-
-        # plot only outliers histogram
-        plt.hist(outliers[col], color='red')
-        plt.title('Outliers for ' + col)
-        plt.show()
+        # plt.hist(outliers[col], color='red')
+        # plt.hist(no_outliers[col], color='blue')
+        # plt.title(col)
+        # plt.show()
 
         original_df = no_outliers
 
@@ -128,11 +124,13 @@ def draw_cluster_barplot(original_df, model):
     scaler = preprocessing.MinMaxScaler()
     df_scaled = pd.DataFrame(scaler.fit_transform(original_df), columns=original_df.columns)
     df_scaled['cluster'] = model.labels_
+    df_scaled.columns = ['gender', 'attractive', 'sincere', 'intelligent', 'fun', 'ambitious',
+                              'has shared interests/hobbies', 'cluster']
 
     tidy = df_scaled.melt(id_vars='cluster')
     plt.subplots(figsize=(15, 5))
     sns.barplot(x='cluster', y='value', hue='variable', data=tidy, palette='Set3')
-    plt.legend([''])
+    plt.legend(loc='upper right')
     plt.show()
 
 
@@ -154,6 +152,33 @@ def plot_feature_dependency(clustered_df):
     # atrakcyjność, szczerość
     sns.scatterplot(x=clustered_df.attr1_1, y=clustered_df.sinc1_1, hue=clustered_df.labels, palette="Set2")
     plt.show()
+
+
+def knn_classification(df_with_labels, cluster_num):
+    feature_cols = ['attr1_1', 'sinc1_1', 'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1', 'labels']
+    X = df_to_clustering.loc[:, feature_cols]
+    print(X.columns)
+    y = df_with_labels.gender
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+    from sklearn.preprocessing import MinMaxScaler
+
+    scaler = MinMaxScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    knn = KNeighborsClassifier()
+    knn.fit(X_train, y_train)
+    print('Accuracy of K-NN classifier on training set: {:.2f}'
+          .format(knn.score(X_train, y_train)))
+    print('Accuracy of K-NN classifier on test set: {:.2f}'
+          .format(knn.score(X_test, y_test)))
+
+    y_pred = knn.predict(X_test)
+    cf_matrix = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cf_matrix, annot=True, cmap='Blues', fmt='g')
+    plt.title('Gender classification with {:d} clusters'.format(cluster_num))
+    plt.show()
+    print(classification_report(y_test, y_pred))
 
 
 if __name__ == '__main__':
@@ -257,7 +282,6 @@ if __name__ == '__main__':
     plt.show()
     # dla mężczyzn mniejsze znaczenie mają ambicje
 
-
     # clustering (gender,attr1_1,sinc1_1,intel1_1,fun1_1,amb1_1,shar1_1)
     cols1, cols2 = loadtxt("args.txt", dtype=str, comments="#", delimiter=",", unpack=False)
 
@@ -300,54 +324,39 @@ if __name__ == '__main__':
     plt.ylabel("Importance")
     plt.show()
 
-    # 3 clusters
-    df_to_clustering = df_to_clustering.drop(columns=['labels'])
-    normalized_vectors = preprocessing.normalize(df_to_clustering)
-    kmeans, norm_kmeans, silhouette, silhouette_norm = clustering(3, df_to_clustering, normalized_vectors)
-
-    draw_cluster_barplot(df_to_clustering, norm_kmeans)
-
-    plt.title('Cosine K-means (3 clusters)')
-    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans.labels_, palette="Set2")
-    plt.show()
-
-    df_to_clustering['labels'] = norm_kmeans.labels_
-    plot_feature_dependency(df_to_clustering)
-
 
     # clustering (gender, age, age_o)
-    cols2 = [x for x in cols2 if x]
-    print(cols2)
-    df_to_clustering = df.loc[:, cols2]
-
-    kmeans_model, norm_kmeans_model = run_clustering(df_to_clustering)
-
-    # Principal Component Analysis
-    pca_df = run_pca(2, df_to_clustering)
-    plt.title('Cosine K-means (2 clusters)')
-    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans_model.labels_, palette="Set2")
-    plt.show()
-
-    draw_cluster_barplot(df_to_clustering, norm_kmeans_model)
-
-    df_to_clustering['labels'] = norm_kmeans_model.labels_
-
-    # wiek, wiek partnera
-    sns.scatterplot(x=df_to_clustering.age, y=df_to_clustering.age_o, hue=df_to_clustering.labels,palette="Set2")
-    plt.show()
-
-    df['gender'].hist(by=df_to_clustering['labels'])
-    pl.suptitle('Gender')
-    plt.show()
-
-    size = df_to_clustering.groupby('labels').size()
-    print(size)
+    # cols2 = [x for x in cols2 if x]
+    # print(cols2)
+    # df_to_clustering = df.loc[:, cols2]
+    #
+    # kmeans_model, norm_kmeans_model = run_clustering(df_to_clustering)
+    #
+    # # Principal Component Analysis
+    # pca_df = run_pca(2, df_to_clustering)
+    # plt.title('Cosine K-means (2 clusters)')
+    # sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans_model.labels_, palette="Set2")
+    # plt.show()
+    #
+    # draw_cluster_barplot(df_to_clustering, norm_kmeans_model)
+    #
+    # df_to_clustering['labels'] = norm_kmeans_model.labels_
+    #
+    # # wiek, wiek partnera
+    # sns.scatterplot(x=df_to_clustering.age, y=df_to_clustering.age_o, hue=df_to_clustering.labels,palette="Set2")
+    # plt.show()
+    #
+    # df['gender'].hist(by=df_to_clustering['labels'])
+    # pl.suptitle('Gender')
+    # plt.show()
+    #
+    # size = df_to_clustering.groupby('labels').size()
+    # print(size)
 
 
     # Classification
-    feature_cols = ['attr1_1', 'sinc1_1', 'intel1_1', 'fun1_1', 'amb1_1', 'shar1_1']
-    X = df.loc[:, feature_cols]
-    y = df.gender
+    X = df_to_clustering.loc[:, df_to_clustering.columns != 'gender']
+    y = df_to_clustering.gender
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
     from sklearn.preprocessing import MinMaxScaler
 
@@ -372,23 +381,20 @@ if __name__ == '__main__':
     print('Accuracy of Decision Tree classifier on test set: {:.2f}'
           .format(clf.score(X_test, y_test)))
 
-    from sklearn.neighbors import KNeighborsClassifier
+    knn_classification(df_to_clustering, 2)
 
-    knn = KNeighborsClassifier()
-    knn.fit(X_train, y_train)
-    print('Accuracy of K-NN classifier on training set: {:.2f}'
-          .format(knn.score(X_train, y_train)))
-    print('Accuracy of K-NN classifier on test set: {:.2f}'
-          .format(knn.score(X_test, y_test)))
+    # 3 clusters
+    df_to_clustering = df_to_clustering.drop(columns=['labels'])
+    normalized_vectors = preprocessing.normalize(df_to_clustering)
+    kmeans, norm_kmeans, silhouette, silhouette_norm = clustering(3, df_to_clustering, normalized_vectors)
 
-    y_pred = knn.predict(X_test)
-    cf_matrix = confusion_matrix(y_test, y_pred)
-    sns.heatmap(cf_matrix, annot=True, cmap='Blues', fmt='g')
+    draw_cluster_barplot(df_to_clustering, norm_kmeans)
+
+    plt.title('Cosine K-means (3 clusters)')
+    sns.scatterplot(x=pca_df.PC0, y=pca_df.PC1, hue=norm_kmeans.labels_, palette="Set2")
     plt.show()
-    print(classification_report(y_test, y_pred))
 
-    # female_df = df[df['gender'] == 0].copy()
-    # male_df = df[df['gender'] == 1].copy()
-    # merged_df = merge_person_partner_data(female_df, male_df)
-    #
-    # print(merged_df)
+    df_to_clustering['labels'] = norm_kmeans.labels_
+    plot_feature_dependency(df_to_clustering)
+
+    knn_classification(df_to_clustering, 3)
